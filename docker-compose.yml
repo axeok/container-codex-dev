@@ -1,0 +1,12 @@
+﻿services:
+  codex:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    working_dir: /workspace
+    volumes:
+      - ${CODEX_HOME_PATH:-./data/codex}:/root/.codex
+      - ${WORKSPACE_PATH:-./data/workspace}:/workspace
