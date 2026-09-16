@@ -1,12 +1,77 @@
-﻿services:
+services:
   codex:
     build:
       context: .
       dockerfile: Dockerfile
     restart: unless-stopped
-    tty: true
-    stdin_open: true
+    expose:
+      - "22"
+    environment:
+      MODEL_PROVIDER_ROUTE: ${MODEL_PROVIDER_ROUTE:-}
+      MODEL_PROVIDER_API_TOKEN: ${MODEL_PROVIDER_API_TOKEN:-}
+      SSH_AUTHORIZED_KEY: ${SSH_AUTHORIZED_KEY:-}
     working_dir: /workspace
     volumes:
-      - ${CODEX_HOME_PATH:-./data/codex}:/root/.codex
-      - ${WORKSPACE_PATH:-./data/workspace}:/workspace
+      - codex-home:/root/.codex
+      - codex-workspace:/workspace
+      - codex-ssh:/root/.ssh
+
+  codex-gateway:
+    build:
+      context: "https://github.com/yunhaoli24/codex-gateway.git#8514266735669d37ccc0c9398fb3856c63e7f907"
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      codex:
+        condition: service_started
+    expose:
+      - "3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      BROWSER_PREVIEW_DOMAIN: ${BROWSER_PREVIEW_DOMAIN:-localhost}
+      CODEX_GATEWAY_DB_PATH: /data/codex-gateway.db
+      CODEX_GATEWAY_CONFIG_SECRET: ${CODEX_GATEWAY_CONFIG_SECRET:?CODEX_GATEWAY_CONFIG_SECRET is required}
+      CODEX_GATEWAY_ADMIN_USERNAME: ${CODEX_GATEWAY_ADMIN_USERNAME:-admin}
+      CODEX_GATEWAY_ADMIN_PASSWORD: ${CODEX_GATEWAY_ADMIN_PASSWORD:?CODEX_GATEWAY_ADMIN_PASSWORD is required}
+    command:
+      - sh
+      - -ec
+      - |
+        node scripts/create-user.mjs "$$CODEX_GATEWAY_ADMIN_USERNAME" "$$CODEX_GATEWAY_ADMIN_PASSWORD"
+        exec node --expose-gc --max-old-space-size=512 .output/server/index.mjs
+    volumes:
+      - codex-gateway-data:/data
+      - codex-ssh:/ssh:ro
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "const s=require('node:net').connect(3000,'127.0.0.1',()=>{s.end();process.exit(0)});s.on('error',()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  codex-gateway-bootstrap:
+    build:
+      context: .
+      dockerfile: GatewayBootstrap.Dockerfile
+    restart: "no"
+    depends_on:
+      codex-gateway:
+        condition: service_healthy
+    environment:
+      CODEX_GATEWAY_URL: http://codex-gateway:3000
+      CODEX_GATEWAY_ADMIN_USERNAME: ${CODEX_GATEWAY_ADMIN_USERNAME:-admin}
+      CODEX_GATEWAY_ADMIN_PASSWORD: ${CODEX_GATEWAY_ADMIN_PASSWORD:?CODEX_GATEWAY_ADMIN_PASSWORD is required}
+    volumes:
+      - codex-ssh:/ssh:ro
+
+volumes:
+  codex-home:
+  codex-workspace:
+  codex-ssh:
+  codex-gateway-data:
