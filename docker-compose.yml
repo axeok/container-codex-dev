@@ -18,8 +18,10 @@ services:
 
   codex-gateway:
     build:
-      context: "https://github.com/yunhaoli24/codex-gateway.git#8514266735669d37ccc0c9398fb3856c63e7f907"
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Gateway.Dockerfile
+      args:
+        CODEX_GATEWAY_REVISION: 8514266735669d37ccc0c9398fb3856c63e7f907
     restart: unless-stopped
     depends_on:
       codex:
