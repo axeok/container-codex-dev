@@ -1,5 +1,7 @@
 ﻿FROM mcr.microsoft.com/dotnet/sdk:10.0-noble
 
+ARG CODEX_VERSION=0.153.4
+
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update \
@@ -14,7 +16,7 @@ RUN apt-get update \
         python3-venv \
     && curl -fsSL https://deb.nodesource.com/setup_24.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
-    && npm install -g @openai/codex \
+    && npm install -g "@openai/codex@${CODEX_VERSION}" \
     && rm -rf /var/lib/apt/lists/* \
     && mkdir -p /run/sshd /root/.ssh /workspace \
     && chmod 700 /root/.ssh \
